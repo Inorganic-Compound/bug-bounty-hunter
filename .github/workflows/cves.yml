@@ -9,7 +9,7 @@ jobs:
     with:
       scan_name: "CVE"
       tags: "cve"
-      severity: "medium,high,critical"
+      severity: "high,critical"
     secrets:
       EMAIL_USER: ${{ secrets.EMAIL_USER }}
       EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
