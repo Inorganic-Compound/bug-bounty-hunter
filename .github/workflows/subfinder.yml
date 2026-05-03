@@ -1,37 +1,75 @@
 name: Weekly Subdomain Discovery
 on:
   schedule:
-    - cron: '0 1 * * 0'  # Every Sunday 1am UTC (after template update)
+    - cron: '0 1 * * 0'
   workflow_dispatch:
 
 jobs:
-  discover:
+  prepare:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    outputs:
+      batches: ${{ steps.split.outputs.batches }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Split domains into batches of 100
+        id: split
+        run: |
+          total=$(wc -l < domains.txt)
+          num_batches=$(( (total + 99) / 100 ))
+          batches=$(seq 1 $num_batches | jq -R . | jq -sc .)
+          echo "batches=$batches" >> $GITHUB_OUTPUT
 
+  discover:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    strategy:
+      fail-fast: false
+      max-parallel: 10
+      matrix:
+        batch: ${{ fromJson(needs.prepare.outputs.batches) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Cache Go tools
         uses: actions/cache@v4
         id: cache-tools
         with:
           path: ~/go/bin
           key: go-tools-${{ runner.os }}-v1
-
       - name: Install subfinder
         if: steps.cache-tools.outputs.cache-hit != 'true'
         run: go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
-
-      - name: Run subfinder on all domains
+      - name: Run subfinder on batch
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
-          subfinder -dL domains.txt -silent -timeout 30 -t 10 -o subdomains_raw.txt || true
-          grep -vP '^\d+[-\.]\d+[-\.]\d+[-\.]\d+\.' subdomains_raw.txt > subdomains.txt || true
-          echo "Total subdomains found: $(wc -l < subdomains.txt)"
+          start=$(( (${{ matrix.batch }} - 1) * 100 + 1 ))
+          sed -n "${start},$((start + 99))p" domains.txt > batch_domains.txt
+          subfinder -dL batch_domains.txt -silent -timeout 30 -t 10 -max-time 60 -o subs_raw.txt || true
+          grep -vP '^\d+[-\.]\d+[-\.]\d+[-\.]\d+\.' subs_raw.txt > batch_subs.txt || true
+      - name: Upload batch results
+        uses: actions/upload-artifact@v4
+        with:
+          name: subs-batch-${{ matrix.batch }}
+          path: batch_subs.txt
 
+  combine:
+    needs: discover
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all_subs
+      - name: Combine and deduplicate
+        run: |
+          cat all_subs/**/*.txt | sort -u > subdomains.txt
+          echo "Total unique subdomains: $(wc -l < subdomains.txt)"
       - name: Commit subdomains
         run: |
           git config --global user.email "bugbountybot@github.com"
