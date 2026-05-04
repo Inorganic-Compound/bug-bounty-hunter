@@ -47,17 +47,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Split subdomains into batches of 200
+      - name: Split subdomains into batches
         id: split
         run: |
-          # Use subdomains.txt if exists, otherwise fall back to domains.txt
-          if [ -f subdomains.txt ] && [ -s subdomains.txt ]; then
-            INPUT=subdomains.txt
+          if [ -f subdomains1.txt ] && [ -s subdomains1.txt ]; then
+            cat subdomains1.txt subdomains2.txt > input.txt
           else
-            INPUT=domains.txt
+            cp domains.txt input.txt
           fi
-          total=$(wc -l < $INPUT)
-          cp $INPUT input.txt
+          total=$(wc -l < input.txt)
           num_batches=$(( (total + 199) / 200 ))
           batches=$(seq 1 $num_batches | jq -R . | jq -sc .)
           echo "batches=$batches" >> $GITHUB_OUTPUT
@@ -112,14 +110,6 @@ jobs:
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
           katana -list live_hosts.txt -silent -js-crawl -depth 2 -timeout 10 -o urls.txt || true
-
-      - name: Restore nuclei templates
-        uses: actions/cache@v4
-        with:
-          path: ~/.local/share/nuclei-templates
-          key: nuclei-templates-${{ runner.os }}-weekly
-          restore-keys: |
-            nuclei-templates-${{ runner.os }}-
 
       - name: Run nuclei
         run: |
