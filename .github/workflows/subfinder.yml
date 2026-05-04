@@ -60,9 +60,11 @@ jobs:
           path: batch_subs.txt
           if-no-files-found: warn
 
-  combine:
+  combine_subs:
     needs: [prepare, discover]
     runs-on: ubuntu-latest
+    outputs:
+      httpx_batches: ${{ steps.split.outputs.httpx_batches }}
     if: ${{ always() && needs.prepare.result == 'success' }}
     steps:
       - name: Checkout
@@ -90,6 +92,15 @@ jobs:
           echo "File 1: $(wc -l < subdomains1.txt)"
           echo "File 2: $(wc -l < subdomains2.txt)"
 
+      - name: Split subdomains for httpx
+        id: split
+        run: |
+          total=$(wc -l < all_subdomains_clean.txt)
+          num_batches=$(( (total + 49999) / 50000 ))
+          httpx_batches=$(seq 1 $num_batches | jq -R . | jq -sc .)
+          echo "httpx_batches=$httpx_batches" >> $GITHUB_OUTPUT
+          echo "Total httpx batches: $num_batches"
+
       - name: Commit subdomains
         run: |
           git config --global user.email "bugbountybot@github.com"
@@ -98,18 +109,23 @@ jobs:
           git diff --staged --quiet || git commit -m "Weekly subdomain update $(date +'%Y-%m-%d')"
           git push
 
-  httpx:
-    needs: combine
+      - name: Upload clean subdomains for httpx jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-subdomains-clean
+          path: all_subdomains_clean.txt
+
+  httpx_scan:
+    needs: combine_subs
     runs-on: ubuntu-latest
     timeout-minutes: 360
-    if: ${{ always() && needs.combine.result == 'success' }}
+    if: ${{ always() && needs.combine_subs.result == 'success' }}
+    strategy:
+      fail-fast: false
+      max-parallel: 10
+      matrix:
+        batch: ${{ fromJson(needs.combine_subs.outputs.httpx_batches) }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Cache Go tools
         uses: actions/cache@v4
         id: cache-tools
@@ -121,19 +137,54 @@ jobs:
         if: steps.cache-tools.outputs.cache-hit != 'true'
         run: go install github.com/projectdiscovery/httpx/cmd/httpx@latest
 
-      - name: Run httpx on all subdomains
+      - name: Download subdomains
+        uses: actions/download-artifact@v4
+        with:
+          name: all-subdomains-clean
+
+      - name: Run httpx on batch
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
-          cat subdomains1.txt subdomains2.txt > all_subdomains.txt
-          echo "Total subdomains to probe: $(wc -l < all_subdomains.txt)"
-          httpx -l all_subdomains.txt \
+          start=$(( (${{ matrix.batch }} - 1) * 50000 + 1 ))
+          sed -n "${start},$((start + 49999))p" all_subdomains_clean.txt > batch_subs.txt
+          httpx -l batch_subs.txt \
             -silent \
             -timeout 5 \
             -retries 0 \
             -rl 300 \
             -threads 100 \
-            -o live_hosts.txt || true
-          echo "Live hosts found: $(wc -l < live_hosts.txt)"
+            -o batch_live.txt || true
+          echo "Live hosts in batch ${{ matrix.batch }}: $(wc -l < batch_live.txt)"
+
+      - name: Upload live hosts
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-batch-${{ matrix.batch }}
+          path: batch_live.txt
+          if-no-files-found: warn
+
+  combine_hosts:
+    needs: [combine_subs, httpx_scan]
+    runs-on: ubuntu-latest
+    if: ${{ always() && needs.combine_subs.result == 'success' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download all live host artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all_live
+          pattern: live-batch-*
+
+      - name: Combine live hosts
+        run: |
+          find all_live -name "*.txt" | xargs cat 2>/dev/null | \
+          sort -u > live_hosts.txt || true
+          echo "Total live hosts: $(wc -l < live_hosts.txt)"
 
       - name: Commit live hosts
         run: |
