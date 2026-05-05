@@ -111,14 +111,15 @@ jobs:
             TAGS_FLAG="-tags ${{ inputs.tags }}"
           fi
 
-          CUSTOM_FLAG=""
+          # Combine main templates and custom templates into one -t flag
           if [ -d "custom-templates" ]; then
-            CUSTOM_FLAG="-t custom-templates"
+            T_FLAG="-t $TEMPLATES_DIR -t custom-templates"
+          else
+            T_FLAG="-t $TEMPLATES_DIR"
           fi
 
           timeout 21000 nuclei -l "$INPUT_FILE" \
-            -t "$TEMPLATES_DIR" \
-            $CUSTOM_FLAG \
+            $T_FLAG \
             $TAGS_FLAG \
             -severity ${{ inputs.severity }} \
             -silent -retries 1 -timeout 8 \
