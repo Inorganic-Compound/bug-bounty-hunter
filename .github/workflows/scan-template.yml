@@ -71,13 +71,10 @@ jobs:
       - name: Ensure nuclei templates exist
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
-          echo "Nuclei location: $(which nuclei || echo 'NOT FOUND')"
-          echo "Go bin: $(ls ~/go/bin/)"
           TEMPLATES_DIR="$HOME/.local/share/nuclei-templates"
           if [ ! -d "$TEMPLATES_DIR" ] || [ -z "$(ls -A $TEMPLATES_DIR 2>/dev/null)" ]; then
             echo "No templates found, downloading now..."
             mkdir -p "$TEMPLATES_DIR"
-            nuclei -update-templates -ud "$TEMPLATES_DIR" -silent || true
             nuclei -update-templates -silent || true
             echo "Templates after download: $(ls $TEMPLATES_DIR 2>/dev/null | wc -l) folders"
           else
@@ -115,6 +112,7 @@ jobs:
       - name: Run nuclei
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
+          TEMPLATE_DIR="$HOME/.local/share/nuclei-templates"
 
           if [ "${{ inputs.nuclei_input }}" = "urls" ] && [ -f urls.txt ]; then
             INPUT_FILE="urls.txt"
@@ -132,16 +130,10 @@ jobs:
             CUSTOM_FLAG="-t custom-templates"
           fi
 
-          echo "Input file: $INPUT_FILE"
-          echo "Lines in input: $(wc -l < $INPUT_FILE)"
-          echo "Tags flag: $TAGS_FLAG"
-          echo "Custom flag: $CUSTOM_FLAG"
-          echo "Templates dir contents:"
-          ls $HOME/.local/share/nuclei-templates/
-          
           timeout 21000 nuclei -l "$INPUT_FILE" \
-            $TAGS_FLAG \
+            -t "$TEMPLATE_DIR" \
             $CUSTOM_FLAG \
+            $TAGS_FLAG \
             -severity ${{ inputs.severity }} \
             -silent -retries 1 -timeout 8 \
             -bulk-size 100 -concurrency 100 \
