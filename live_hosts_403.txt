@@ -1,9 +1,0 @@
-http://kesasyomarit.wolt.com
-https://cdn.wolt.com
-https://consumer-static-assets.wolt.com
-https://converse-static-resources.wolt.com
-https://converse-web-static.wolt.com
-https://developer-portal-static-assets.wolt.com
-https://prod-videos.wolt.com
-https://static.wolt.com
-https://wolt-com-static-assets.wolt.com
