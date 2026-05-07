@@ -1,0 +1,15 @@
+http://autodiscover.zivver.com
+https://app-ipv4.zivver.com
+https://app.eu.zivver.com
+https://app.zivver.com
+https://brand.zivver.com
+https://docs.zivver.com
+https://downloads-test.zivver.com
+https://downloads.zivver.com
+https://get.zivver.com
+https://owa-v6.zivver.com
+https://owa-v7.zivver.com
+https://owa.zivver.com
+https://security.zivver.com
+https://support.zivver.com
+https://www.zivver.com

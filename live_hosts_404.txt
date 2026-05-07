@@ -1,0 +1,2 @@
+https://error-reporting.zivver.com
+https://mta-sts.zivver.com

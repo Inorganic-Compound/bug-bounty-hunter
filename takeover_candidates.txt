@@ -1,0 +1,1 @@
+[ Yes ] Show only potentially vulnerable subdomains (--hide_fails)
