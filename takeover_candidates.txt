@@ -1,1 +1,8 @@
+[ * ] Fingerprints not found; saving them to "/home/runner/subzy/fingerprints.json"
+[ * ] Loaded 129 targets
+[ * ] Loaded 76 fingerprints
+[ 10 ] HTTP request timeout (in seconds) (--timeout)
+[ 100 ] Concurrent requests (--concurrency)
+[ No ] HTTPS by default (--https)
+[ Yes ] Check target only if SSL is valid (--verify_ssl)
 [ Yes ] Show only potentially vulnerable subdomains (--hide_fails)
