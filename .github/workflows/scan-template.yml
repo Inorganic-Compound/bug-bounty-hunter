@@ -169,9 +169,10 @@ jobs:
             -silent \
             -retries 1 \
             -timeout 10 \
-            -bulk-size 25 \
-            -concurrency 25 \
+            -bulk-size 50 \
+            -concurrency 50 \
             -rate-limit 100 \
+            -fhr \
             -max-host-error 30 \
             -no-color \
             -o results.txt || true
