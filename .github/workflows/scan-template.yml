@@ -18,6 +18,10 @@ on:
         required: false
         type: boolean
         default: false
+      use_custom_only:
+        required: false
+        type: boolean
+        default: false
       input_file:
         required: false
         type: string
@@ -146,6 +150,7 @@ jobs:
           TEMPLATES_DIR="$HOME/.local/share/nuclei-templates"
           SEVERITY="${{ inputs.severity }}"
           TAGS="${{ inputs.tags }}"
+          USE_CUSTOM_ONLY="${{ inputs.use_custom_only }}"
 
           if [ "${{ inputs.use_katana }}" = "true" ] && [ -f urls.txt ] && [ -s urls.txt ]; then
             INPUT_FILE="urls.txt"
@@ -164,10 +169,11 @@ jobs:
             TAGS_FLAG="-itags $TAGS"
           fi
 
-          if [ -d "custom-templates" ] && [ -z "$TAGS" ]; then
+          # T_FLAG logic — three clean cases, no bleed:
+          # 1. use_custom_only=true  → custom-templates dir only, no nuclei defaults
+          # 2. use_custom_only=false → nuclei defaults only, custom-templates never appended
+          if [ "$USE_CUSTOM_ONLY" = "true" ]; then
             T_FLAG="-t custom-templates"
-          elif [ -d "custom-templates" ] && [ -n "$TAGS" ]; then
-            T_FLAG="-t $TEMPLATES_DIR -t custom-templates"
           else
             T_FLAG="-t $TEMPLATES_DIR"
           fi
