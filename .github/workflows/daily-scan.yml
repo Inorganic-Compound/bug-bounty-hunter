@@ -1,8 +1,10 @@
 name: Daily Scan
+
 on:
   schedule:
     - cron: '30 0 * * *'
   workflow_dispatch:
+
 jobs:
   # ─── 1. TAKEOVER ───────────────────────────────────────────────
   # Uses 404 hosts only — subdomains returning 404 are takeover candidates
@@ -18,12 +20,12 @@ jobs:
       EMAIL_TO: ${{ secrets.EMAIL_TO }}
 
   # ─── 2. MAIN DAILY SCAN ────────────────────────────────────────
-  # CVE + CORS + Admin Panels + Secrets all in one nuclei run
+  # CVE + CORS + Admin Panels — no secrets/exposure here (those are weekly)
   daily_main:
     uses: ./.github/workflows/scan-template.yml
     with:
       scan_name: "Daily Main"
-      tags: "cve,cors,panel,admin,token,secret,api-key,exposure"
+      tags: "cve,cors,panel,admin"
       severity: "low,medium,high,critical"
       input_file: "live_hosts"
     secrets:
