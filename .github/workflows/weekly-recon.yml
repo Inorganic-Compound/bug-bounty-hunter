@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
       - name: Fetch domains from domains branch
         run: |
@@ -47,6 +49,8 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     timeout-minutes: 350
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     strategy:
       fail-fast: false
       max-parallel: 10
@@ -153,12 +157,16 @@ jobs:
     needs: [prepare, discover]
     runs-on: ubuntu-latest
     timeout-minutes: 350
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     if: ${{ always() && needs.prepare.result == 'success' }}
     steps:
-      - name: Checkout
+      - name: Checkout domains branch directly
         uses: actions/checkout@v4
         with:
+          ref: domains
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: Install tools
         run: |
@@ -190,7 +198,6 @@ jobs:
           echo "Total takeover candidates: $count"
           echo "takeover_count=$count" >> $GITHUB_ENV
 
-      # ── NEW ASSET DIFF ──────────────────────────────────────────
       - name: Diff new subdomains
         run: |
           if [ -f all_subdomains_clean.txt ] && [ -s all_subdomains_clean.txt ]; then
@@ -205,7 +212,6 @@ jobs:
           echo "New subdomains this week: $(wc -l < new_subdomains.txt)"
           cp all_subdomains_new.txt all_subdomains_clean.txt
 
-      # ── HTTPX: probe all subdomains ──────────────────────────────
       - name: Run httpx on all subdomains
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
@@ -239,7 +245,6 @@ jobs:
           echo "403 targets: $(wc -l < live_hosts_403.txt)"
           echo "404 targets: $(wc -l < live_hosts_404.txt)"
 
-      # ── HTTPX: probe new subdomains separately ───────────────────
       - name: Run httpx on new subdomains
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
@@ -268,8 +273,6 @@ jobs:
         run: |
           git config --global user.email "bugbountybot@github.com"
           git config --global user.name "BugBountyBot"
-          git fetch origin domains || true
-          git checkout -B domains origin/domains || git checkout -B domains
           git add \
             live_hosts.txt \
             live_hosts_403.txt \
@@ -279,10 +282,8 @@ jobs:
             new_live_hosts.txt \
             takeover_candidates.txt
           git diff --staged --quiet || git commit -m "Weekly recon $(date +'%Y-%m-%d') - $(wc -l < live_hosts.txt) live | $(wc -l < new_subdomains.txt) new subs | ${{ env.takeover_count }} takeover candidates"
-          git pull --rebase origin domains || true
           git push origin domains
 
-      # ── EMAIL: only if subzy found takeover candidates ───────────
       - name: Email takeover candidates
         if: env.takeover_count != '0'
         uses: dawidd6/action-send-mail@v3
