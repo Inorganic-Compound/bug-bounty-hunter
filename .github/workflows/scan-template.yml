@@ -38,9 +38,14 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: domains
+          fetch-depth: 1
 
       - name: Get week number
         id: date
@@ -115,8 +120,10 @@ jobs:
             fi
           elif [ -f live_hosts.txt ] && [ -s live_hosts.txt ]; then
             cp live_hosts.txt input.txt
-          else
+          elif [ -f domains.txt ] && [ -s domains.txt ]; then
             cp domains.txt input.txt
+          else
+            touch input.txt
           fi
 
           echo "Total targets: $(wc -l < input.txt)"
@@ -169,9 +176,6 @@ jobs:
             TAGS_FLAG="-itags $TAGS"
           fi
 
-          # T_FLAG logic — three clean cases, no bleed:
-          # 1. use_custom_only=true  → custom-templates dir only, no nuclei defaults
-          # 2. use_custom_only=false → nuclei defaults only, custom-templates never appended
           if [ "$USE_CUSTOM_ONLY" = "true" ]; then
             T_FLAG="-t custom-templates"
           else
